@@ -1,4 +1,6 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import time
 import io
 import shutil
 import urllib
@@ -6,9 +8,12 @@ import urllib
 
 class MonitorServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        result = self.get_net_stat()
+        #result = self.get_net_stat()
         enc = 'UTF-8'
-        encoded_res = ''.join(result).encode(enc)
+        global transmitBytesPerSec
+        threadLock.acquire()
+        encoded_res = ''.join(str(transmitBytesPerSec)).encode(enc)
+        threadLock.release()
         f = io.BytesIO()
         f.write(encoded_res)
         f.seek(0)
@@ -18,6 +23,39 @@ class MonitorServer(BaseHTTPRequestHandler):
         self.end_headers()
 
         shutil.copyfileobj(f, self.wfile)
+
+
+class ServerThread(threading.Thread):
+    def __init__(self, threadID, name, monitorServer):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.monitorServer = monitorServer
+
+    def run(self):
+        self.monitorServer.serve_forever()
+
+
+class MonitorThread(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.interval = interval
+        self.last_transmitBytes = 0
+
+    def run(self):
+        while(True):
+            time.sleep(self.interval)
+            threadLock.acquire()
+            global transmitBytesPerSec
+            netstat = self.get_net_stat()
+            curr_transmitBytes = float(netstat[0]['TransmitBytes'])/1024/8
+            diff_transmitBytes = curr_transmitBytes - self.last_transmitBytes
+            transmitBytesPerSec = diff_transmitBytes/self.interval
+            self.last_transmitBytes = curr_transmitBytes
+            print(transmitBytesPerSec)
+            threadLock.release()
 
     def get_net_stat(self):
         net = []
@@ -68,6 +106,19 @@ class MonitorServer(BaseHTTPRequestHandler):
         return net
 
 
+interval = 10
+transmitBytesPerSec = 0
+threadLock = threading.Lock()
+threads = []
 httpd = HTTPServer(('', 8000), MonitorServer)
+
 print('Server started on localhost, port 8000')
-httpd.serve_forever()
+
+monitor = ServerThread(1, 'Monitor', httpd)
+server = MonitorThread(2, 'Server')
+
+monitor.start()
+server.start()
+
+threads.append(monitor)
+threads.append(server)
