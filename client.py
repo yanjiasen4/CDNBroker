@@ -50,7 +50,7 @@ class MonitorThread(threading.Thread):
             threadLock.acquire()
             global transmitBytesPerSec
             netstat = self.get_net_stat()
-            curr_transmitBytes = float(netstat[0]['TransmitBytes'])/1024/8
+            curr_transmitBytes = float(netstat[1]['TransmitBytes'])/1024/8
             diff_transmitBytes = curr_transmitBytes - self.last_transmitBytes
             transmitBytesPerSec = diff_transmitBytes/self.interval
             self.last_transmitBytes = curr_transmitBytes
