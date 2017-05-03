@@ -10,9 +10,10 @@ import platform
 
 os = platform.system()
 if os == 'Windows':
+    import pythoncom
     import wmi
 
-brokerServerIP = '120.24.71.4'
+brokerServerIP = 'localhost'
 brokerServerPort = 9800
 
 
@@ -42,15 +43,22 @@ class ServerThread(threading.Thread):
         self.name = name
         self.monitorServer = monitorServer
 
+    def __del(self):
+        self.connectExit()
+
     def run(self):
         self.connectInit()
         self.monitorServer.serve_forever()
 
     def connectInit(self):
-        clientIP = socket.gethostbyname(socket.gethostname())
-        #clientIP = '59.78.22.135'  # test
+        # clientIP = '59.78.22.135'  # test
         skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        skt.sendto(bytes(clientIP, encoding='utf-8'),
+        skt.sendto(bytes('CONNECT', encoding='utf-8'),
+                   (brokerServerIP, brokerServerPort))
+
+    def connectExit(self):
+        skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        skt.sendto(bytes('EXIT', encdoing='tuf-8'),
                    (brokerServerIP, brokerServerPort))
 
 
@@ -61,6 +69,7 @@ class MonitorThread(threading.Thread):
         self.name = name
         self.interval = interval
         self.last_transmitBytes = 0
+        self.os = os
 
     def run(self):
         # acquire first transimitbytes
@@ -85,9 +94,9 @@ class MonitorThread(threading.Thread):
 
     def get_net_stat(self):
         net = []
-        os = platform.system()
 
-        if os == 'Windows':
+        if self.os == 'Windows':
+            pythoncom.CoInitialize ()
             c = wmi.WMI()
             for iface in c.Win32_PerfRawData_Tcpip_TCPv4():
                 sentflow = float(iface.SegmentsSentPersec)  # 已发送的流量
@@ -96,8 +105,9 @@ class MonitorThread(threading.Thread):
                 intf['TransmitBytes'] = sentflow
 
                 net.append(intf)
+            pythoncom.CoUninitialize ()
 
-        elif os == 'Linux':
+        elif self.os == 'Linux':
             f = open("/proc/net/dev")
             lines = f.readlines()
             f.close()

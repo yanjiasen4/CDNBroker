@@ -78,7 +78,7 @@ class ClientListener(threading.Thread):
         skt.bind(('', port))
         while True:
             data, addr = skt.recvfrom(1024)
-            r = requests.get(ipParserUrl+str(data, encoding='utf-8'))
+            r = requests.get(ipParserUrl+addr[0])
             print('Recived:', str(data, encoding='utf-8'),
                 'from', addr)
             data = eval(r.text)
@@ -90,7 +90,6 @@ class ClientListener(threading.Thread):
 
 def access(url, proxies):
     r = requests.get(url, proxies=proxies)
-
 
 def addNode2Pool(node, addr):
     if not addr in nodePool:
