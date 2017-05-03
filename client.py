@@ -13,7 +13,7 @@ if os == 'Windows':
     import pythoncom
     import wmi
 
-brokerServerIP = 'localhost'
+brokerServerIP = '120.24.71.4'
 brokerServerPort = 9800
 
 
