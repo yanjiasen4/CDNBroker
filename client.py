@@ -1,3 +1,4 @@
+#-*- coding: UTF-8 -*-
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import time
@@ -15,7 +16,7 @@ brokerServerPort = 9800
 
 class MonitorServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        #result = self.get_net_stat()
+        result = self.get_net_stat()
         enc = 'UTF-8'
         global transmitBytesPerSec
         threadLock.acquire()
