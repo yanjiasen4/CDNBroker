@@ -12,8 +12,7 @@ os = platform.system()
 if os == 'Windows':
     import wmi
 
-
-brokerServerIP = 'localhost'
+brokerServerIP = '120.24.71.4'
 brokerServerPort = 9800
 
 
@@ -48,8 +47,8 @@ class ServerThread(threading.Thread):
         self.monitorServer.serve_forever()
 
     def connectInit(self):
-        #clientIP = socket.gethostbyname(socket.gethostname())
-        clientIP = '59.78.22.135'  # test
+        clientIP = socket.gethostbyname(socket.gethostname())
+        #clientIP = '59.78.22.135'  # test
         skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         skt.sendto(bytes(clientIP, encoding='utf-8'),
                    (brokerServerIP, brokerServerPort))
@@ -64,12 +63,20 @@ class MonitorThread(threading.Thread):
         self.last_transmitBytes = 0
 
     def run(self):
+        # acquire first transimitbytes
+        threadLock.acquire()
+        global transmitBytesPerSec
+        netstat = self.get_net_stat()
+        self.last_transmitBytes = sum(
+            float(iface['TransmitBytes']) for iface in netstat) / 1024 / 8
+        threadLock.release()
         while(True):
             time.sleep(self.interval)
             threadLock.acquire()
             global transmitBytesPerSec
             netstat = self.get_net_stat()
-            curr_transmitBytes = sum(float(iface['TransmitBytes']) for iface in netstat) / 1024 / 8
+            curr_transmitBytes = sum(
+                float(iface['TransmitBytes']) for iface in netstat) / 1024 / 8
             diff_transmitBytes = curr_transmitBytes - self.last_transmitBytes
             transmitBytesPerSec = diff_transmitBytes / self.interval
             self.last_transmitBytes = curr_transmitBytes
@@ -119,17 +126,17 @@ class MonitorThread(threading.Thread):
                 intf = dict(
                     zip(
                         ('interface', 'ReceiveBytes', 'ReceivePackets',
-                        'ReceiveErrs', 'ReceiveDrop', 'ReceiveFifo',
-                        'ReceiveFrames', 'ReceiveCompressed', 'ReceiveMulticast',
-                        'TransmitBytes', 'TransmitPackets', 'TransmitErrs',
-                        'TransmitDrop', 'TransmitFifo', 'TransmitFrames',
-                        'TransmitCompressed', 'TransmitMulticast'),
+                         'ReceiveErrs', 'ReceiveDrop', 'ReceiveFifo',
+                         'ReceiveFrames', 'ReceiveCompressed', 'ReceiveMulticast',
+                         'TransmitBytes', 'TransmitPackets', 'TransmitErrs',
+                         'TransmitDrop', 'TransmitFifo', 'TransmitFrames',
+                         'TransmitCompressed', 'TransmitMulticast'),
                         (con[0].rstrip(":"), int(con[1]), int(con[2]),
-                        int(con[3]), int(con[4]), int(con[5]),
-                        int(con[6]), int(con[7]), int(con[8]),
-                        int(con[9]), int(con[10]), int(con[11]),
-                        int(con[12]), int(con[13]), int(con[14]),
-                        int(con[15]), int(con[16]), )
+                         int(con[3]), int(con[4]), int(con[5]),
+                         int(con[6]), int(con[7]), int(con[8]),
+                         int(con[9]), int(con[10]), int(con[11]),
+                         int(con[12]), int(con[13]), int(con[14]),
+                         int(con[15]), int(con[16]), )
                     )
                 )
 
