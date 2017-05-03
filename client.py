@@ -7,7 +7,10 @@ import shutil
 import urllib
 import socket
 import platform
-import wmi
+
+os = platform.system()
+if os == 'Windows':
+    import wmi
 
 
 brokerServerIP = 'localhost'
