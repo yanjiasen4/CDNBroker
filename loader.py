@@ -22,8 +22,8 @@ class Loader:
             self.capacityData.append(configYaml[self.capacityKey][key])
 
     def printData(self):
-        print self.priceData
-        print self.limitData
-        print self.capacityData
+        print(self.priceData)
+        print(self.limitData)
+        print(self.capacityData)
 
 

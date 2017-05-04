@@ -17,10 +17,15 @@ class TestClient(object):
                 self.testCount += 1
             f.close()
 
-    def access(self, url, accNode):
+    '''
+    access test url via personal CDN node
+    record elspsed time
+    '''
+    def accessViaPCDN(self, url, accNode):
         r = requests.get(url, proxies=accNode)
         res_data = {}
         res_data['url'] = url
+        res_data['isPCDN'] = True
         res_data['accNode'] = accNode
         if r.status_code == 200: # OK
             if 'Content-Length' in r.headers:
@@ -33,3 +38,20 @@ class TestClient(object):
                 else:
                     res_data['hit'] = False
             res_data['elspsed'] = r.elapsed.microseconds
+    
+    '''
+    access test url via professional CDN
+    use solver to dispatch requests
+    '''
+    def accessViaCDN(self, url, accNode):
+        r = requests.get(url)
+        res_data = {}
+        res_data['url'] = url
+        res_data['isPCDN'] = False
+        res_data['accNode'] = accNode
+        if r.status_code == 200: # OK
+            if 'Content-Length' in r.headers:
+                res_data['contentlength'] = int(r.headers['Content-Length'])
+            res_data['elspsed'] = r.elapsed.microseconds
+            res_data['cost'] = accNode.price[self.addr] * res_data['contentlength']
+            
