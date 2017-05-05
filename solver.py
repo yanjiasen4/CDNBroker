@@ -1,5 +1,6 @@
 #from pymprog import *
 from loader import Loader
+import random
 
 configFile = 'config.yaml'
 ld = Loader(configFile)
@@ -9,58 +10,57 @@ tm = 3600
 S = [(0.8, 1.1, 0.7),
      (1.2, 1.5, 0.9),
      (0.6, 1.2, 0.8)]  # latency data get from CDN
-# p = model('basic')
-# p.verbose(True)
-# x = p.var('x', 9)
-# for i in range(9):
-#   x[i] <= 1
-
-# p.minimize(sum(sum(P[i][j]*x[3*j+i]*N[j] for i in range(3)) for j in range(3)), 'Minimize CDN Cost')
-# for i in range(3):
-#   x[3*i] + x[3*i+1] + x[3*i+2] == 1
-#   sum(S[i][j]*x[3*i+j] for j in range(3)) <= L[i] # latency limit
-#   sum(x[i+3*j] for j in range(3))*N[i]/tm <= C[i] # capacity limit
-
-# p.solve() # solve the model
-# p.sensitivity()
-# for k in x:
-#   print(k.primal)
-# cost = sum(sum(P[i][j]*x[3*j+1].primal*N[j] for i in range(3)) for j in range(3))
-# print(cost)
-
-# p.end()
 
 from pulp import *
 
+'''
+requestsData:
+    a 2D array, means whole requests for each objects in a period.
+    example,
+    requestsData = [
+        (100,200,300),
+        (50,400,200),
+        (420,300,320)
+    ]
+    means there are requests from 3 address for 3 objects. 100 from addr1 request for object1...
+latencyData:
+    a 2D array
+'''
 
-def optimal(requestsData, latencyData, limitData):
+
+def broker(requestsData, latencyData, limitData):
 
     N = requestsData
     S = latencyData
     L = limitData
+    objectNum = len(requestsData)
+    addrNum = len(requestsData[0])
+    objectCyc = addrNum * addrNum
+    variableNum = objectCyc * addrNum
     prob = LpProblem("min cost", LpMinimize)
-    x1 = LpVariable("ChickenPercent", 0, None, LpInteger)
-    x2 = LpVariable("BeefPercent", 0)
-    x = [LpVariable(str(i), lowBound=0, upBound=1) for i in range(9)]
-    prob += sum(sum(P[i][j] * x[3 * j + i] * N[j] for i in range(3))
-                for j in range(3)), "Total Cost of CDN"
-    for i in range(3):
-        prob += lpSum(x[3 * i + j] for j in range(3)) == 1, str(i) + "sum to 1"
-        prob += lpSum(S[i][j] * x[3 * i + j]
-                      for j in range(3)) <= L[i], str(i) + "latency limit"
-        prob += lpSum(x[i + 3 * j] for j in range(3)) * N[i] / \
-            tm <= C[i], str(i) + "capacity limit"
+    x = [LpVariable('x' + str(i), lowBound=0, upBound=1)
+         for i in range(variableNum)]
+    prob += sum(sum(sum(P[i][j] * x[objectCyc * k + addrNum * j + i] * N[k][j] for i in range(addrNum))
+                    for j in range(addrNum)) for k in range(objectNum)), "Total Cost of CDN"
+    for k in range(objectNum):
+        for i in range(addrNum):
+            prob += lpSum(x[objectCyc * k + addrNum * i + j]
+                          for j in range(addrNum)) == 1, ""
+            prob += lpSum(S[i][j] * x[objectCyc * k + addrNum * i + j]
+                          for j in range(addrNum)) <= L[i], ""
+            prob += lpSum(x[objectCyc * k + i + addrNum * j]
+                          for j in range(addrNum)) * N[k][i] / tm <= C[i], ""
 
     prob.writeLP("CDNCostModel.lp")
 
-    solveCount = 0
+    solveCount = 5
     minValue = -1
     optimalSolution = []
     prob.solve()
     while True:
         prob.resolve()
-        currValue = sum(sum(P[i][j] * prob.variables()[3 * j +
-                                                       i].varValue * N[j] for i in range(3)) for j in range(3))
+        currValue = sum(sum(sum(P[i][j] * prob.variables()[objectCyc * k + addrNum * j + i].varValue * N[k][j]
+                                for i in range(addrNum)) for j in range(addrNum)) for k in range(objectNum))
         if minValue < 0:
             minValue = currValue
             optimalSolution = [v.varValue for v in prob.variables()]
@@ -73,4 +73,93 @@ def optimal(requestsData, latencyData, limitData):
         if solveCount >= 1:
             break
 
-    return optimalSolution
+    print('optimal method: ' + str(minValue))
+    return minValue, optimalSolution
+
+# minimal cost (do not consider performance)
+
+def minimal_cost_method(requestsData):
+    N = requestsData
+    objectNum = len(requestsData)
+    addrNum = len(requestsData[0])
+    objectCyc = addrNum * addrNum
+    variableNum = objectCyc * addrNum
+    prob = LpProblem("min cost", LpMinimize)
+    x = [LpVariable('x' + str(i), lowBound=0, upBound=1, cat=LpContinuous)
+         for i in range(variableNum)]
+    prob += sum(sum(sum(P[i][j] * x[objectCyc * k + addrNum * j + i] * N[k][j] for i in range(addrNum))
+                    for j in range(addrNum)) for k in range(objectNum)), "Total Cost of CDN"
+    for k in range(objectNum):
+        for i in range(addrNum):
+            prob += lpSum(x[objectCyc * k + addrNum * i + j]
+                          for j in range(addrNum)) == 1, ""
+
+    prob.writeLP("CDNCostModelWithoutPerformance.lp")
+
+    solveCount = 5
+    minValue = -1
+    optimalSolution = []
+    prob.solve()
+    while True:
+        prob.resolve()
+        currValue = sum(sum(sum(P[i][j] * prob.variables()[objectCyc * k + addrNum * j + i].varValue * N[k][j]
+                                for i in range(addrNum)) for j in range(addrNum)) for k in range(objectNum))
+        if minValue < 0:
+            minValue = currValue
+            optimalSolution = [v.varValue for v in prob.variables()]
+        elif minValue > 0:
+            if minValue > currValue:
+                minValue = currValue
+                optimalSolution = [v.varValue for v in prob.variables()]
+        if LpStatus[prob.status] == 'Optimal':
+            solveCount += 1
+        if solveCount >= 1:
+            break
+
+    print('minimal cost: ' + str(minValue))
+
+    return minValue, optimalSolution
+
+
+# randomly choice CDN to serve requests
+
+
+def random_method(requestsData):
+    N = requestsData
+    objectNum = len(requestsData)
+    addrNum = len(requestsData[0])
+    objectCyc = addrNum * addrNum
+    variableNum = objectCyc * addrNum
+
+    x = [random.random() for i in range(variableNum)]
+    for i in range(0, variableNum, addrNum):
+        totalValue = sum(x[i + j] for j in range(0, addrNum))
+        for k in range(0, addrNum):
+            x[i + k] /= totalValue
+
+    value = sum(sum(sum(P[i][j] * x[objectCyc * k + addrNum * j + i] * N[k][j] for i in range(addrNum))
+                    for j in range(addrNum)) for k in range(objectNum))
+
+    #print('random method: ' + str(value))
+    return value, x
+
+# choice single CDN to serve all requests
+
+
+def single_method(requestsData, cdnid):
+    N = requestsData
+    objectNum = len(requestsData)
+    addrNum = len(requestsData[0])
+    objectCyc = addrNum * addrNum
+    variableNum = objectCyc * addrNum
+    amounts = [sum(N[i][k] for i in range(objectNum)) for k in range(addrNum)]
+
+    value = sum(P[cdnid][j] * amounts[j] for j in range(addrNum))
+
+    x = [0 for i in range(variableNum)]
+    for i in range(0, variableNum, objectCyc):
+        for j in range(0, objectCyc, addrNum):
+            x[i + j + cdnid] = 1
+
+    #print('single method: ' + str(value))
+    return value, x

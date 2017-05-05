@@ -7,8 +7,8 @@ import requests
 import json
 import random
 
-from tester import TestClient
-from solver import optimal
+from tester import TestLoader, TestClient
+from solver import broker, random_method, single_method, minimal_cost_method
 
 ipParserUrl = 'http://api.ip138.com/query/?datatype=jsonp&token=c7fbe6a2583ed6c76847560e89960e82&ip='
 
@@ -128,12 +128,26 @@ if __name__ == '__main__':
     # listener.start()
 
     # threads.append(listener)
-    requestsData = [
-        [120, 800, 680],
-        [112, 850, 720],
-        [104, 860, 660],
-        [60, 820, 700]
-    ]
+    # testLoader = TestLoader('test')
+
+    # requestsData = [
+    #     [
+    #         [120, 800, 680],
+    #         [45, 250, 300],
+    #         [280, 114, 108]],
+    #     [
+    #         [112, 850, 720],
+    #         [42, 340, 320],
+    #         [250, 120, 84]],
+    #     [
+    #         [104, 860, 660],
+    #         [60, 280, 280],
+    #         [320, 118, 120]],
+    #     [  
+    #         [60, 820, 700],
+    #         [28, 320, 280],
+    #         [48, 278, 318]]
+    # ]
     latencyData = [
         [
             (230, 144, 128),
@@ -144,5 +158,27 @@ if __name__ == '__main__':
     limitData = [
         (250, 152, 120)
     ]
-    result = optimal(requestsData[0], latencyData[0], limitData[0])
-    print(result)
+    # result = optimal(requestsData[0], latencyData[0], limitData[0])
+    # print(result)
+
+    testLoader = TestLoader('test')
+    testLoader.countData(900000)
+    print(testLoader.requestsData)
+    op_sum = rd_sum = sg_sum = mc_sum = 0
+    for p in range(testLoader.total_period):
+        op_value, op_result = broker(testLoader.requestsData[p], latencyData[0], limitData[0])
+        rd_value, rd_result = random_method(testLoader.requestsData[p])
+        sg_value, sg_result = single_method(testLoader.requestsData[p], 1)
+        mc_value, mc_result = minimal_cost_method(testLoader.requestsData[p])
+
+        print(op_result)
+        print(mc_result)
+
+        op_sum += op_value
+        rd_sum += rd_value
+        sg_sum += sg_value
+        mc_sum += mc_value
+
+    print('total cost compare:\noptimal: {0} | random: {1} | single {2} | minimal {3}'.format(op_sum, rd_sum, sg_sum, mc_sum))
+        
+        
