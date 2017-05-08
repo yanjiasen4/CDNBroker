@@ -95,7 +95,6 @@ class CDNNode(object):
         if maxlevel is not None:
             cmpLevel = min(cmpLevel, maxlevel)
         for i in range(cmpLevel):
-            print(self.addr[i], addr[i])
             if self.addr[i] != addr[i]:
                 return False
 
@@ -124,7 +123,7 @@ class ClientListener(threading.Thread):
         skt.bind(('', port))
         while True:
             data, addr = skt.recvfrom(1024)
-            addr = ('120.24.71.4', 8000)
+            # addr = ('120.24.71.4', 8000) # local test
             r = requests.get(ipParserUrl + addr[0])
             print('Recived:', str(data, encoding='utf-8'),
                   'from', addr)
@@ -163,8 +162,10 @@ def executeTestEntry(requestsInfo):
     if ret:
         res = accessViaPCDN(url, ret)
         testInfo.append(res)
+        return res
     else:
         accessViaCDN(url)
+    return None
 
 def accessViaCDN(url):
     pass
@@ -173,7 +174,9 @@ def accessViaCDN(url):
 def accessViaPCDN(url, pCDN):
     proxies = {'http': str(pCDN)}
     data = access(url, proxies)
+    print(data)
     data['pCDN'] = str(pCDN)
+    return data
 
 def access(url, proxies):
     r = requests.get(url, proxies=proxies)
