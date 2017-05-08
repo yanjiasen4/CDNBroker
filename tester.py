@@ -13,13 +13,13 @@ class TestLoader(object):
             for line in f:
                 res = line.split(';')
                 url = res[1]
-                addr = tuple(res[2][1:-1].split(','))
+                addr = tuple(res[2][:-1].split(','))
                 if url not in self.urls:
                     self.urls.append(url)
                 if addr not in self.addrs:
                     self.addrs.append(addr)
                 self.tdata.append(
-                    (int(res[0]), res[1], res[2][1:-1].split(',')))
+                    (int(res[0]), res[1], res[2][:-1].split(',')))
             f.close()
             # count
             self.length = self.tdata[-1][0]  # ms
@@ -44,7 +44,7 @@ class TestLoader(object):
         self.requestsDataInfo = [[] for i in range(tperiod)]
         self.requestsData = [[[0 for k in range(self.addrNum)] for j in range(
             self.urlNum)] for i in range(tperiod)]
-        self.urlList = [{} for i in range(tperiod)]
+        self.urlList = [{} for i in range(tperiod)] 
         self.addrList = [{} for i in range(tperiod)]
         self.total_period = tperiod
         urlNumber = -1  # start at 0

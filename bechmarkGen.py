@@ -40,13 +40,17 @@ class TestMaker(object):
         for (key, value) in self.bechmark.items():
             with open(key, 'w+') as f:
                 for entry in value:
+                    addr = ''
+                    for c in entry[2]:
+                        addr += (c + ',')
+                    addr = addr[:-1]
                     f.writelines('{0};{1};{2}\n'.format(
-                        entry[0], entry[1], entry[2]))
+                        entry[0], entry[1], addr))
                 f.close()
                 
 if __name__ == '__main__':
     testMaker = TestMaker()
-    urls = ['yanjiasen4.tech', 'cdnbroker.tech', 'www.python.org']
+    urls = ['http://yanjiasen4.tech', 'http://cdnbroker.tech', 'https://www.python.org']
     urlsdr = [0.3, 0.4, 0.3]
     addr = [['美国'],['中国','上海'],['中国','广东']]
     addrdr = [0.12, 0.56, 0.32]

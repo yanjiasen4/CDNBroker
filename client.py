@@ -13,13 +13,12 @@ if os == 'Windows':
     import pythoncom
     import wmi
 
-brokerServerIP = '120.24.71.4'
+brokerServerIP = 'localhost'
 brokerServerPort = 9800
 
 
 class MonitorServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        result = self.get_net_stat()
         enc = 'UTF-8'
         global transmitBytesPerSec
         threadLock.acquire()

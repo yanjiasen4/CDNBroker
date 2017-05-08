@@ -13,6 +13,14 @@ S = [(0.8, 1.1, 0.7),
 
 from pulp import *
 
+def getOptimalValue(variables):
+    ret = [0 for i in range(len(variables))]
+    for var in variables:
+        index = int(var.name[1:])
+        ret[index] = var.varValue
+    return ret
+
+
 '''
 requestsData:
     a 2D array, means whole requests for each objects in a period.
@@ -56,18 +64,20 @@ def broker(requestsData, latencyData, limitData):
     solveCount = 5
     minValue = -1
     optimalSolution = []
+    currentSolution = []
     prob.solve()
     while True:
         prob.resolve()
-        currValue = sum(sum(sum(P[i][j] * prob.variables()[objectCyc * k + addrNum * j + i].varValue * N[k][j]
+        currentSolution = getOptimalValue(prob.variables())
+        currValue = sum(sum(sum(P[i][j] * currentSolution[objectCyc * k + addrNum * j + i] * N[k][j]
                                 for i in range(addrNum)) for j in range(addrNum)) for k in range(objectNum))
         if minValue < 0:
             minValue = currValue
-            optimalSolution = [v.varValue for v in prob.variables()]
+            optimalSolution = currentSolution
         elif minValue > 0:
             if minValue > currValue:
                 minValue = currValue
-                optimalSolution = [v.varValue for v in prob.variables()]
+                optimalSolution = currentSolution
         if LpStatus[prob.status] == 'Optimal':
             solveCount += 1
         if solveCount >= 1:
@@ -99,18 +109,20 @@ def minimal_cost_method(requestsData):
     solveCount = 5
     minValue = -1
     optimalSolution = []
+    currentSolution = []
     prob.solve()
     while True:
         prob.resolve()
-        currValue = sum(sum(sum(P[i][j] * prob.variables()[objectCyc * k + addrNum * j + i].varValue * N[k][j]
+        currentSolution = getOptimalValue(prob.variables())
+        currValue = sum(sum(sum(P[i][j] * currentSolution[objectCyc * k + addrNum * j + i] * N[k][j]
                                 for i in range(addrNum)) for j in range(addrNum)) for k in range(objectNum))
         if minValue < 0:
             minValue = currValue
-            optimalSolution = [v.varValue for v in prob.variables()]
+            optimalSolution = currentSolution
         elif minValue > 0:
             if minValue > currValue:
                 minValue = currValue
-                optimalSolution = [v.varValue for v in prob.variables()]
+                optimalSolution = currentSolution
         if LpStatus[prob.status] == 'Optimal':
             solveCount += 1
         if solveCount >= 1:
