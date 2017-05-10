@@ -1,3 +1,4 @@
+#-*- coding: UTF-8 -*-
 import random
 
 
@@ -42,18 +43,20 @@ class TestMaker(object):
                 for entry in value:
                     addr = ''
                     for c in entry[2]:
-                        addr += (c + ',')
+                        addr += (str(c) + ',')
                     addr = addr[:-1]
                     f.writelines('{0};{1};{2}\n'.format(
                         entry[0], entry[1], addr))
                 f.close()
-                
+
+
 if __name__ == '__main__':
     testMaker = TestMaker()
-    urls = ['http://yanjiasen4.tech', 'http://cdnbroker.tech', 'https://www.python.org']
+    urls = ['http://yanjiasen4.tech',
+            'http://cdnbroker.tech', 'https://www.python.org']
     urlsdr = [0.3, 0.4, 0.3]
-    addr = [['美国'],['中国','上海'],['中国','广东']]
+    addr = [['美国'], ['中国', '上海'], ['中国', '广东']]
     addrdr = [0.12, 0.56, 0.32]
-    length = 60*60*1000 # 1hour
+    length = 60 * 60 * 1000  # 1hour
     testMaker.genTest('test', length, 4000, urls, urlsdr, addr, addrdr)
     testMaker.saveTest()
