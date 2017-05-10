@@ -8,6 +8,8 @@ import json
 import random
 import time
 
+from threading import Timer
+
 from tester import TestLoader, TestClient
 from solver import broker, random_method, single_method, minimal_cost_method
 
@@ -149,9 +151,16 @@ class Tester(threading.Thread):
     def run(self):
         for period in self.loader.requestsDataInfo:
             for entry in period:
-                time.sleep(float(entry[0])/1000)
-                ret = executeTestEntry(entry)
-                print(ret, entry[0])
+                t = Timer(float(entry[0])/1000, executeTestEntry, args=(entry,))
+                t.start()
+        self.saveTest()
+
+    def saveTest(self):
+        with open('res.log', 'w+') as f:
+            for data in testInfo:
+                f.writelines(str(data)+'\n')
+            f.close()
+
 
 
 def executeTestEntry(requestsInfo):
@@ -162,10 +171,10 @@ def executeTestEntry(requestsInfo):
     if ret:
         res = accessViaPCDN(url, ret)
         testInfo.append(res)
-        return res
+        print(timestamp, res)
     else:
         accessViaCDN(url)
-    return None
+        print(timestamp)
 
 def accessViaCDN(url):
     pass
