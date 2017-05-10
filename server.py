@@ -153,6 +153,7 @@ class Tester(threading.Thread):
             for entry in period:
                 t = Timer(float(entry[0])/1000, executeTestEntry, args=(entry,))
                 t.start()
+        print("test finished:\n")
         self.saveTest()
 
     def saveTest(self):
@@ -183,13 +184,13 @@ def accessViaCDN(url):
 def accessViaPCDN(url, pCDN):
     proxies = {'http': str(pCDN)}
     data = access(url, proxies)
-    print(data)
     data['pCDN'] = str(pCDN)
     return data
 
 def access(url, proxies):
     r = requests.get(url, proxies=proxies)
     res_data = {}
+    res_data['url'] = url
     if r.status_code == 200:  # OK
         if 'Content-Length' in r.headers:
             res_data['contentLength'] = int(r.headers['Content-Length'])
@@ -205,7 +206,6 @@ def access(url, proxies):
 
 def findNode(taraddr):
     for (addr,nodes) in nodePool.items():
-        print(addr, taraddr)
         if addr == taraddr:
             return nodes[0]
     return None
