@@ -3,6 +3,7 @@ import sys
 import yaml
 
 class Loader:
+    CDNList = []
     priceData = []
     limitData = []
     capacityData = []
@@ -16,6 +17,7 @@ class Loader:
         configFile.close()
         for key in configYaml[self.priceKey]:
             self.priceData.append(configYaml[self.priceKey][key])
+            self.CDNList.append(configYaml[self.priceKey][key]['name'])
         for key in configYaml[self.limitKey]:
             self.limitData.append(configYaml[self.limitKey][key])
         for key in configYaml[self.capacityKey]:

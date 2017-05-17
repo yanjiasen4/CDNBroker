@@ -15,11 +15,11 @@ from solver import broker, random_method, single_method, minimal_cost_method
 
 ipParserUrl = 'http://api.ip138.com/query/?datatype=jsonp&token=c7fbe6a2583ed6c76847560e89960e82&ip='
 
-monitorPort = 8000 # broker get client status from 8000
-defaultPort = 3128 # client squid listening port
+monitorPort = 8000  # broker get client status from 8000
+defaultPort = 3128  # client squid listening port
 nodePool = {}
 
-interval_15min = 900000 # 15min
+interval_15min = 900000  # 15min
 interval_30min = 2 * interval_15min
 interval_1hour = 4 * interval_15min
 
@@ -27,9 +27,30 @@ addrTable = [
     ['美国'], ['中国', '上海'], ['中国', '广东']
 ]
 
+requestsData = [[]]
+
+optimalValue = randomValue = singleValue = minimalValue = []
+
 optimalRes = []
+randomRes = []
+singleRes = []
+minimalRes = []
+
+op_sum = rd_sum = sg_sum = mc_sum = 0
 
 testInfo = []
+
+latencyData = [
+    [
+        (230, 144, 128),
+        (258, 162, 110),
+        (224, 150, 116)
+    ]
+]
+limitData = [
+    (250, 152, 120)
+]
+
 
 class CDNNode(object):
     def __init__(self, ip, addr, maxt):
@@ -52,7 +73,6 @@ class CDNNode(object):
 
     def __str__(self):
         return str(self.ip) + ':' + str(self.port)
-
 
     def update(self):
         r = requests.get(self.ip + ':' + str(monitorPort))
@@ -101,10 +121,11 @@ class CDNNode(object):
                 return False
 
         return True
-    
+
     '''
     Weather a CDN node is overloaded.
     '''
+
     def isOverloaded(self):
         return self.currTransmit >= self.maxTransmit or self.status != 'working'
 
@@ -125,7 +146,7 @@ class ClientListener(threading.Thread):
         skt.bind(('', port))
         while True:
             data, addr = skt.recvfrom(1024)
-            # addr = ('120.24.71.4', 8000) # local test
+            addr = ('120.24.71.4', 8000)  # local test
             r = requests.get(ipParserUrl + addr[0])
             print('Recived:', str(data, encoding='utf-8'),
                   'from', addr)
@@ -139,7 +160,8 @@ class ClientListener(threading.Thread):
         while(True):
             time.sleep(10)
             for nd in nodePool:
-                nd.update()    
+                nd.update()
+
 
 class Tester(threading.Thread):
     def __init__(self, threadID, name, loader):
@@ -149,36 +171,76 @@ class Tester(threading.Thread):
         self.loader = loader
 
     def run(self):
+        lastEntryTime = 0
+        delay = 5  # wait for last request finished
+        pCount = 0
         for period in self.loader.requestsDataInfo:
             for entry in period:
-                t = Timer(float(entry[0])/1000, executeTestEntry, args=(entry,))
+                lastEntryTime = float(entry[0] / 1000)
+                t = Timer(lastEntryTime, self.executeTestEntry,
+                          args=(entry, pCount))
                 t.start()
-        print("test finished:\n")
-        self.saveTest()
+            print(self.loader.countInterval * pCount / 1000)
+            solver = Timer(self.loader.countInterval * pCount / 1000, self.solve,  args=(pCount,))
+            solver.start()
+            pCount += 1
+        recorder = Timer(lastEntryTime + delay, self.saveTest)
 
     def saveTest(self):
         with open('res.log', 'w+') as f:
             for data in testInfo:
-                f.writelines(str(data)+'\n')
+                f.writelines(str(data) + '\n')
             f.close()
 
+    def solve(self, period):
+        # calculate requests total size
+        mutex.acquire()
+        for (akey, addr) in self.loader.addrList[period].items():
+            addrIndex = addr['index']
+            for (ukey, url) in self.loader.urlList[period].items():
+                urlIndex = url['index']
+                urlSize = url['size']
+                self.loader.requestsData[period][addrIndex][urlIndex] *= int(urlSize)
+                print(self.loader.requestsData[period][addrIndex][urlIndex])
 
+        dataInput = self.loader.requestsData[period]
+        mutex.release()
 
-def executeTestEntry(requestsInfo):
-    timestamp = int(requestsInfo[0])
-    url = requestsInfo[1]
-    addr = tuple(requestsInfo[2])
-    ret = findNode(addr)
-    if ret:
-        res = accessViaPCDN(url, ret)
-        testInfo.append(res)
-        print(timestamp, res)
-    else:
-        accessViaCDN(url)
-        print(timestamp)
+        print(dataInput)
+        op_value, op_result = broker(
+            dataInput, latencyData[0], limitData[0])
+        print(op_value)
+        print(op_result)
+        optimalValue.append(op_value)
+        optimalRes.append(op_result)
+
+    def executeTestEntry(self, requestsInfo, period):
+        timestamp = int(requestsInfo[0])
+        url = requestsInfo[1]
+        addr = tuple(requestsInfo[2])
+        ret = findNode(addr)
+        res = {}
+        if ret:
+            res = accessViaPCDN(url, ret)
+            if res['success']:
+                mutex.acquire()
+                testInfo.append(res)
+                addrIndex = self.loader.addrList[period][addr]['index']
+                urlIndex = self.loader.urlList[period][url]['index']
+                if 'size' not in self.loader.urlList[period][url].keys():
+                    self.loader.urlList[period][url]['size'] = res['contentLength']
+                self.loader.requestsData[period][urlIndex][addrIndex] -= 1
+                mutex.release()
+        else:
+            res = accessViaCDN(url)
+        res['time'] = timestamp
+        print(res)
+
 
 def accessViaCDN(url):
-    pass
+    data = access(url)
+    data['pCDN'] = None
+    return data
 
 
 def accessViaPCDN(url, pCDN):
@@ -187,13 +249,17 @@ def accessViaPCDN(url, pCDN):
     data['pCDN'] = str(pCDN)
     return data
 
-def access(url, proxies):
+
+def access(url, proxies=None):
     r = requests.get(url, proxies=proxies)
     res_data = {}
     res_data['url'] = url
     if r.status_code == 200:  # OK
+        res_data['success'] = True
         if 'Content-Length' in r.headers:
             res_data['contentLength'] = int(r.headers['Content-Length'])
+        else:
+            res_data['contentLength'] = int(len(r.text))
         if 'X-Cache' in r.headers:
             res_data['cache'] = r.headers['X-Cache']
             if 'HIT' in res_data['cache']:
@@ -201,11 +267,13 @@ def access(url, proxies):
             else:
                 res_data['hit'] = False
         res_data['elspsed'] = r.elapsed.microseconds
+    else:
+        res_data['success'] = False
     return res_data
 
 
 def findNode(taraddr):
-    for (addr,nodes) in nodePool.items():
+    for (addr, nodes) in nodePool.items():
         if addr == taraddr:
             return nodes[0]
     return None
@@ -216,6 +284,8 @@ def addNode2Pool(node, addr):
         nodePool[addr] = []
     nodePool[addr].append(node)
 
+
+mutex = threading.Lock()
 
 if __name__ == '__main__':
     threads = []
@@ -267,7 +337,7 @@ if __name__ == '__main__':
     # testLoader = TestLoader('test')
     # testLoader.countData(900000)
     # print(testLoader.requestsData)
-    # op_sum = rd_sum = sg_sum = mc_sum = 0
+
     # for p in range(testLoader.total_period):
     #     op_value, op_result = broker(
     #         testLoader.requestsData[p], latencyData[0], limitData[0])

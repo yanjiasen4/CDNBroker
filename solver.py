@@ -6,6 +6,7 @@ configFile = 'config.yaml'
 ld = Loader(configFile)
 P = ld.priceData
 C = ld.capacityData
+CDNs = ld.CDNList
 tm = 3600
 S = [(0.8, 1.1, 0.7),
      (1.2, 1.5, 0.9),
@@ -20,6 +21,24 @@ def getOptimalValue(variables):
         ret[index] = var.varValue
     return ret
 
+def getCDNPrice(dataUsage):
+    ret = []
+    for (key,value) in dataUsage:
+        if key not in CDNs: continue
+        found = False
+        for CDN in P:
+            if CDN['name'] == key:
+                index = 0
+                for bd in CDN['grad']:
+                    if value < bd:
+                        ret.append(CDN['price'][index])
+                        break
+                    else:
+                        index += 1
+                if index >= len(CDN['grad']):
+                    ret.append(CDN['price'][index-1])
+    return ret
+            
 
 '''
 requestsData:
@@ -32,11 +51,15 @@ requestsData:
     ]
     means there are requests from 3 address for 3 objects. 100 from addr1 request for object1...
 latencyData:
-    a 2D array
+    a 2D array.
+limitData:
+    a 2D array, Broker server generated it automatically.
+dataUsage:
+    a dict record how much data has dispath to a CDN, use this to pricing.
 '''
 
 
-def broker(requestsData, latencyData, limitData):
+def broker(requestsData, latencyData, limitData, dataUsage):
 
     N = requestsData
     S = latencyData

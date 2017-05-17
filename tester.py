@@ -40,6 +40,7 @@ class TestLoader(object):
     '''
     def countData(self, interval):
         if not self.tdata or self.tdata[0][0] > interval: return
+        self.countInterval = interval
         tperiod = math.ceil(self.length / interval)
         self.requestsDataInfo = [[] for i in range(tperiod)]
         self.requestsData = [[[0 for k in range(self.addrNum)] for j in range(
@@ -60,7 +61,9 @@ class TestLoader(object):
             addr = tuple(d[2])
             if url not in self.urlList[period].keys():
                 urlNumber += 1
-                self.urlList[period][url] = {'index': urlNumber, 'count': 1}
+                urlSize = self.getRequestsSize(url)
+                print(url, urlSize)
+                self.urlList[period][url] = {'index': urlNumber, 'count': 1, 'size': urlSize}
             else:
                 self.urlList[period][url]['count'] += 1
             if addr not in self.addrList[period].keys():
@@ -74,6 +77,16 @@ class TestLoader(object):
             self.requestsData[period][curUrlIndex][curAddrIndex] += 1
 
             self.requestsDataInfo[period].append(d)
+
+    def getRequestsSize(self, url):
+        r = requests.get(url)
+        if r.status_code == 200:
+            if 'Content-Length' in r.headers:
+                return r.headers['Content-Length']
+            else:
+                return len(str(r.text))
+        else:
+            return 0
         
 
 class TestClient(object):
