@@ -16,8 +16,8 @@ class Loader:
         configYaml = yaml.load(configFile)
         configFile.close()
         for key in configYaml[self.priceKey]:
-            self.priceData.append(configYaml[self.priceKey][key])
-            self.CDNList.append(configYaml[self.priceKey][key]['name'])
+            self.priceData.append(key)
+            self.CDNList.append(key['name'])
         for key in configYaml[self.limitKey]:
             self.limitData.append(configYaml[self.limitKey][key])
         for key in configYaml[self.capacityKey]:

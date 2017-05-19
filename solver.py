@@ -23,7 +23,7 @@ def getOptimalValue(variables):
 
 def getCDNPrice(dataUsage):
     ret = []
-    for (key,value) in dataUsage:
+    for (key,value) in dataUsage.items():
         if key not in CDNs: continue
         found = False
         for CDN in P:
@@ -198,3 +198,12 @@ def single_method(requestsData, cdnid):
 
     #print('single method: ' + str(value))
     return value, x
+
+if __name__ == '__main__':
+    du = {
+        'MaxCDN': 24,
+        'CloudFront': 12,
+        'CDN77': 8
+    }
+
+    print(getCDNPrice(du))
