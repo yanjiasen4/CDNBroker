@@ -11,7 +11,7 @@ import time
 from threading import Timer
 
 from tester import TestLoader, TestClient
-from solver import broker, random_method, single_method, minimal_cost_method
+from solver import broker, random_method, single_method, minimal_cost_method, CDNs
 
 ipParserUrl = 'http://api.ip138.com/query/?datatype=jsonp&token=c7fbe6a2583ed6c76847560e89960e82&ip='
 
@@ -50,7 +50,9 @@ latencyData = [
 limitData = [
     (250, 152, 120)
 ]
-
+CDNUsage = {}
+for CDN in CDNs:
+    CDNUsage[CDN] = 0
 
 class CDNNode(object):
     def __init__(self, ip, addr, maxt):
@@ -169,6 +171,7 @@ class Tester(threading.Thread):
         self.threadID = threadID
         self.name = name
         self.loader = loader
+        self.currentOptRes = [[0 for i in range(self.loader.urlNum)] for j in range(self.loader.addrNum)]
 
     def run(self):
         lastEntryTime = 0
@@ -208,11 +211,15 @@ class Tester(threading.Thread):
 
         print(dataInput)
         op_value, op_result = broker(
-            dataInput, latencyData[0], limitData[0])
+            dataInput, latencyData[0], limitData[0], CDNUsage)
         print(op_value)
         print(op_result)
         optimalValue.append(op_value)
         optimalRes.append(op_result)
+        for i in range(self.loader.addrNum):
+            for j in range(self.loader.urlNum):
+                self.currentOptRes[i][j] = op_value[i*self.loader.urlNum + j]
+        print(self.currentOptRes)
 
     def executeTestEntry(self, requestsInfo, period):
         timestamp = int(requestsInfo[0])
@@ -232,14 +239,31 @@ class Tester(threading.Thread):
                 self.loader.requestsData[period][urlIndex][addrIndex] -= 1
                 mutex.release()
         else:
-            res = accessViaCDN(url)
+            addrIndex = self.loader.addrList[period][addr]['index']
+            urlIndex = self.loader.urlList[period][url]['index']
+            cdn = choiceByPercentage(self.currentOptRes[addrIndex][urlIndex], CDNs)
+            res = accessViaCDN(url, cdn)
         res['time'] = timestamp
         print(res)
 
+def choiceByPercentage(percentage, obj):
+    accum_p = []
+    current_p = 0
+    for p in percentage:
+        accum_p.append(current_p + p)
+        current_p += p
+    sd = random.random()
+    index = 0
+    for p in accum_p:
+        if sd > p:
+            index += 1
+    if index >= len(obj): return None
+    return obj[index]
 
-def accessViaCDN(url):
+def accessViaCDN(url, CDN):
     data = access(url)
     data['pCDN'] = None
+    CDNUsage[CDN] += data['contentLength']
     return data
 
 

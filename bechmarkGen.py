@@ -37,6 +37,9 @@ class TestMaker(object):
             test.append((timestamp, url, addr))
         self.bechmark[name] = test
 
+    def genTestFromFile(self, filename):
+        pass
+
     def saveTest(self):
         for (key, value) in self.bechmark.items():
             with open(key, 'w+') as f:
